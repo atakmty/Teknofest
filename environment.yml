@@ -1,0 +1,12 @@
+name: teknofest_env
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - pandas
+  - numpy
+  - scikit-learn
+  # LightGBM ve CatBoost şimdilik opsiyonel, Nextflow eğitim aşamasında kullanılacaksa dahil edilir
+  # - lightgbm
+  # - catboost
