@@ -7,5 +7,4 @@ dependencies:
   - pandas
   - numpy
   - scikit-learn
-  - lightgbm
-  - catboost
+  - joblib

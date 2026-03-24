@@ -8,7 +8,7 @@ params.output_dir = "${projectDir}/data/processed"
 params.model_dir = "${projectDir}/models"
 params.script = "${projectDir}/src/pipeline/preprocess.py"
 
-// Process 1: TRAIN veri setlerini isle ve .pkl extractor durumunu yayimla
+// Process 1: TRAIN
 process PROCESS_TRAIN {
     conda "${projectDir}/environment.yml"
     publishDir params.output_dir, mode: 'copy', pattern: '*.csv'
@@ -26,7 +26,7 @@ process PROCESS_TRAIN {
     """
 }
 
-// Process 2: TEST veri setlerini PROCESS_TRAIN tarafindan uretilen .pkl modelleriyle isle
+// Process 2: TEST
 process PROCESS_TEST {
     conda "${projectDir}/environment.yml"
     publishDir params.output_dir, mode: 'copy', pattern: '*.csv'
@@ -44,25 +44,20 @@ process PROCESS_TEST {
 }
 
 workflow {
-    // raw data altındaki train dosyalarını kanala ekle ve panel ismini cikar (Örn: Master_train.csv -> Master)
     Channel
         .fromPath("${params.input_dir}/*_train.csv")
         .map { file -> tuple(file.simpleName.replaceAll('_train$', ''), file) }
         .set { train_files_ch }
 
-    // Test dosyalarını ayni sekilde kanala ekle
     Channel
         .fromPath("${params.input_dir}/*_test.csv")
         .map { file -> tuple(file.simpleName.replaceAll('_test$', ''), file) }
         .set { test_files_ch }
 
-    // ADIM 1: Önce Train dosyalarını işleyip modelleri ezberle
     PROCESS_TRAIN(train_files_ch)
 
-    // PROCESS_TRAIN çıktısından [dataset_name, extractor_pkl] bilgilerini ayıkla ve Test channel'ı ile dataset (panel) ismine göre birleştir
     model_ch = PROCESS_TRAIN.out.train_results.map { it -> tuple(it[0], it[2]) }
     test_joined_ch = test_files_ch.join(model_ch)
 
-    // ADIM 2: Test dosyalarini birlesmis kanal (isim, csv, pkl) üzerinden isleyerek data leakage'ı engelle
     PROCESS_TEST(test_joined_ch)
 }

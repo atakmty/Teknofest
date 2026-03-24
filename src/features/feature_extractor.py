@@ -97,12 +97,12 @@ class VariantFeatureExtractor:
     # fit — eğitim setinden istatistik öğren
     # ------------------------------------------------------------------ #
 
-    def fit(self, df: pd.DataFrame) -> 'VariantFeatureExtractor':
+    def fit(self, X: pd.DataFrame, y=None) -> 'VariantFeatureExtractor':
         """
         EK_ medyanlarını ve CAT_ kategorilerini SADECE eğitim setinden öğren.
         Test setine bu istatistikler uygulanır (data leakage yok).
         """
-        df = df.copy()
+        df = X.copy()
 
         # EK_ medyanları
         ek_cols = [c for c in df.columns if c.startswith('EK_')]
@@ -165,13 +165,13 @@ class VariantFeatureExtractor:
 
         return df
 
-    def transform(self, df: pd.DataFrame) -> pd.DataFrame:
+    def transform(self, X: pd.DataFrame) -> pd.DataFrame:
         if not self._is_fitted:
             raise RuntimeError(
-                "Transformer henüz fit edilmedi. Önce extractor.fit(train_df) çağırın."
+                "Transformer henüz fit edilmedi. Önce extractor.fit(X) çağırın."
             )
 
-        df = df.copy()
+        df = X.copy()
 
         # 1. AA öznitelikleri (vektörize)
         df = self._extract_aa_features(df, aa_col='AA_change')
@@ -185,6 +185,11 @@ class VariantFeatureExtractor:
         # 4. Ham AA sütununu sil
         if 'AA_change' in df.columns:
             df.drop(columns=['AA_change'], inplace=True)
+            
+        # 4.5. Scikit-Learn (VarianceThreshold/Scaler) çökmemesi için tüm string/kategorik objeleri düşür
+        non_numeric = df.select_dtypes(exclude=['number', 'bool']).columns
+        if len(non_numeric) > 0:
+            df.drop(columns=non_numeric, inplace=True)
 
         # 5. Kolon sırasını sabitle (ilk transform'da öğren, sonrakilerde uygula)
         if not self.feature_columns_:
@@ -196,11 +201,16 @@ class VariantFeatureExtractor:
                     df[col] = 0.0
             df = df[self.feature_columns_]
 
+        # Booleans (One-Hot'tan gelen) -> int (0/1) dönüşümü
+        for col in df.columns:
+            if df[col].dtype == bool:
+                df[col] = df[col].astype(int)
+
         return df
 
-    def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
+    def fit_transform(self, X: pd.DataFrame, y=None) -> pd.DataFrame:
         """Kolaylık metodu: fit + transform birlikte."""
-        return self.fit(df).transform(df)
+        return self.fit(X, y).transform(X)
 
 if __name__ == '__main__':
     # Test
